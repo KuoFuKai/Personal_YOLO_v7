@@ -14,26 +14,27 @@ from utils.general import check_img_size, check_requirements, check_imshow, non_
 from utils.plots import plot_one_box
 from utils.torch_utils import select_device, load_classifier, time_synchronized, TracedModel
 
+def_save_text = True
 
 def detect(save_img=False):
-    source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace
-    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images
+    source, weights, view_img, save_txt, imgsz, trace = opt.source, opt.weights, opt.view_img, opt.save_txt, opt.img_size, not opt.no_trace # 宣告參數
+    save_img = not opt.nosave and not source.endswith('.txt')  # save inference images, 判斷nosave為false與.txt結尾為false, 則save_img為true
     webcam = source.isnumeric() or source.endswith('.txt') or source.lower().startswith(
-        ('rtsp://', 'rtmp://', 'http://', 'https://'))
+        ('rtsp://', 'rtmp://', 'http://', 'https://')) # 是否為鏡頭
 
     # Directories
-    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run
+    save_dir = Path(increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok))  # increment run, 宣告儲存路徑runs/detect/expX
     (save_dir / 'labels' if save_txt else save_dir).mkdir(parents=True, exist_ok=True)  # make dir
 
     # Initialize
-    set_logging()
-    device = select_device(opt.device)
+    set_logging() # 設定Log
+    device = select_device(opt.device) # 選擇要Run的裝置, 目前Cuda版本不對, 故只能用CPU (汗
     half = device.type != 'cpu'  # half precision only supported on CUDA
 
     # Load model
-    model = attempt_load(weights, map_location=device)  # load FP32 model
-    stride = int(model.stride.max())  # model stride
-    imgsz = check_img_size(imgsz, s=stride)  # check img_size
+    model = attempt_load(weights, map_location=device)  # load FP32 model, 載入模型
+    stride = int(model.stride.max())  # model stride, 模型 or 裝置參數(?
+    imgsz = check_img_size(imgsz, s=stride)  # check img_size, 檢查圖檔尺寸是否支援
 
     if trace:
         model = TracedModel(model, device, opt.img_size)
@@ -54,11 +55,11 @@ def detect(save_img=False):
         cudnn.benchmark = True  # set True to speed up constant image size inference
         dataset = LoadStreams(source, img_size=imgsz, stride=stride)
     else:
-        dataset = LoadImages(source, img_size=imgsz, stride=stride)
+        dataset = LoadImages(source, img_size=imgsz, stride=stride) # 載入圖像資料集
 
     # Get names and colors
-    names = model.module.names if hasattr(model, 'module') else model.names
-    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names]
+    names = model.module.names if hasattr(model, 'module') else model.names # 列出所有可檢測的物品
+    colors = [[random.randint(0, 255) for _ in range(3)] for _ in names] # 每種物品的顏色
 
     # Run inference
     if device.type != 'cpu':
@@ -67,12 +68,12 @@ def detect(save_img=False):
     old_img_b = 1
 
     t0 = time.time()
-    for path, img, im0s, vid_cap in dataset:
-        img = torch.from_numpy(img).to(device)
+    for path, img, im0s, vid_cap in dataset: # 載入圖片跑迴圈
+        img = torch.from_numpy(img).to(device) # 將圖片載入每一個Pixel, 並餵到裝置中
         img = img.half() if half else img.float()  # uint8 to fp16/32
         img /= 255.0  # 0 - 255 to 0.0 - 1.0
-        if img.ndimension() == 3:
-            img = img.unsqueeze(0)
+        if img.ndimension() == 3: # 返回影像維度
+            img = img.unsqueeze(0) # 增加0個維度, https://clay-atlas.com/blog/2020/09/02/pytorch-cn-squeeze-unsqueeze-usage/
 
         # Warmup
         if device.type != 'cpu' and (old_img_b != img.shape[0] or old_img_h != img.shape[2] or old_img_w != img.shape[3]):
@@ -83,14 +84,14 @@ def detect(save_img=False):
                 model(img, augment=opt.augment)[0]
 
         # Inference
-        t1 = time_synchronized()
+        t1 = time_synchronized() # 計算時間
         with torch.no_grad():   # Calculating gradients would cause a GPU memory leak
             pred = model(img, augment=opt.augment)[0]
-        t2 = time_synchronized()
+        t2 = time_synchronized() # 計算時間
 
         # Apply NMS
-        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms)
-        t3 = time_synchronized()
+        pred = non_max_suppression(pred, opt.conf_thres, opt.iou_thres, classes=opt.classes, agnostic=opt.agnostic_nms) # 汰流決選的BBOX
+        t3 = time_synchronized() # 計算時間
 
         # Apply Classifier
         if classify:
@@ -172,7 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('--iou-thres', type=float, default=0.45, help='IOU threshold for NMS')
     parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
     parser.add_argument('--view-img', action='store_true', help='display results')
-    parser.add_argument('--save-txt', action='store_true', help='save results to *.txt')
+    parser.add_argument('--save-txt', action='store_true', default=def_save_text, help='save results to *.txt')
     parser.add_argument('--save-conf', action='store_true', help='save confidences in --save-txt labels')
     parser.add_argument('--nosave', action='store_true', help='do not save images/videos')
     parser.add_argument('--classes', nargs='+', type=int, help='filter by class: --class 0, or --class 0 2 3')
