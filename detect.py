@@ -122,12 +122,14 @@ def detect(save_img=False):
                 for *xyxy, conf, cls in reversed(det):
                     if save_txt:  # Write to file
                         xywh = (xyxy2xywh(torch.tensor(xyxy).view(1, 4)) / gn).view(-1).tolist()  # normalized xywh
-                        line = (names[int(cls)], 'conf: '+str(conf.item()), 'x: '+str(xywh[0]), 'y: '+str(xywh[1]), 'width: '+str(xywh[2]), 'height: '+str(xywh[3])) if opt.save_conf else (cls, *xywh)  # label format
+                        xywh = [format(val, '.3f') for val in xywh]  # format to 3 decimal places
+                        line = (names[int(cls)], 'conf: ' + format(conf.item(), '.3f'), 'x-center: ' + xywh[0], 'y-center: ' + xywh[1],
+                                'w: ' + xywh[2], 'h: ' + xywh[3]) if opt.save_conf else (cls, *xywh)  # label format
                         with open(txt_path + '.txt', 'a') as f:
                             f.write(('%s ' * len(line)).rstrip() % line + '\n')
 
                     if save_img or view_img:  # Add bbox to image
-                        label = f'{names[int(cls)]} {conf:.2f}'
+                        label = f'{names[int(cls)]} {format(conf, ".3f")}'
                         plot_one_box(xyxy, im0, label=label, color=colors[int(cls)], line_thickness=1)
 
             # Print time (inference + NMS)
